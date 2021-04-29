@@ -1,0 +1,4 @@
+# Pipeline
+- pipeline.id: lab8-calidog
+  path.config: "/usr/share/logstash/files/lab8-logstash.conf"
+  pipeline.workers: 3

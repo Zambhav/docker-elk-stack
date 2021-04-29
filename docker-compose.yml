@@ -1,0 +1,131 @@
+version: '3.2'
+
+services:
+  elasticsearch:
+    build:
+      context: elasticsearch/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    volumes:
+      - type: bind
+        source: ./elasticsearch/config/elasticsearch.yml
+        target: /usr/share/elasticsearch/config/elasticsearch.yml
+        read_only: true
+      - type: volume
+        source: elasticsearch
+        target: /usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      ES_JAVA_OPTS: "-Xmx3g -Xms3g"
+      ELASTIC_PASSWORD: changeme
+      # Use single node discovery in order to disable production mode and avoid bootstrap checks.
+      # see: https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
+      discovery.type: single-node
+    networks:
+      - elk
+
+  logstash:
+    build:
+      context: logstash/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    volumes:
+      - type: bind
+        source: ./logstash/config/logstash.yml
+        target: /usr/share/logstash/config/logstash.yml
+        read_only: true
+      - type: bind
+        source: ./logstash/config/pipelines.yml
+        target: /usr/share/logstash/config/pipelines.yml
+        read_only: true
+      - type: bind
+        source: ./logstash/pipeline
+        target: /usr/share/logstash/pipeline
+        read_only: true
+      - type: bind
+        source: ./logstash/data
+        target: /usr/share/logstash/files
+        read_only: true
+    ports:
+      - "5044:5044"
+      - "5000:5000/tcp"
+      - "5000:5000/udp"
+      - "9600:9600"
+    environment:
+      LS_JAVA_OPTS: "-Xmx1g -Xms1g"
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    build:
+      context: kibana/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    volumes:
+      - type: bind
+        source: ./kibana/config/kibana.yml
+        target: /usr/share/kibana/config/kibana.yml
+        read_only: true
+    ports:
+      - "5601:5601"
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
+  filebeat:
+    build:
+      context: filebeat/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    hostname: "filebeat"
+    user: root
+    volumes:
+      - type: bind
+        source: ./filebeat/config/lab8-filebeat.yml
+        target: /usr/share/filebeat/filebeat.yml
+        read_only: true
+      # - type: bind
+      #   source: ./filebeat/config/apache.yml
+      #   target: /usr/share/filebeat/modules.d/apache.yml
+      - type: bind
+        source: /var/lib/docker/containers
+        target: /var/lib/docker/containers
+        read_only: true
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+      - type: bind
+        source: /home/asambhav/Lab8/ElasticPhish/phishing_domains.txt
+        target: /usr/share/filebeat/domains/phishing_domains.txt
+        read_only: true
+      # - type: bind
+      #   source: ../logs/apache_logs1
+      #   target: /usr/share/filebeat/logs/apache_logs1 
+      - type: volume
+        source: filebeat
+        target: /usr/share/filebeat/data
+    # command: chown root:root filebeat.yml modules.d/apache.yml
+    # command: filebeat modules enable apache
+    command: filebeat -e -c /usr/share/filebeat/filebeat.yml
+    # # command: service filebeat start
+    # command: filebeat -e -E output.elasticsearch.username=elastic -E output.elasticsearch.password=changeme -E output.elasticsearch.hosts=["elasticsearch:9200"] --strict.perms=false
+    environment:
+      LS_JAVA_OPTS: "-Xmx1g -Xms1g"    
+    networks:
+      - elk
+    depends_on: 
+      - logstash
+
+networks:
+  elk:
+    driver: bridge
+
+volumes:
+  elasticsearch:
+  filebeat:

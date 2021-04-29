@@ -1,0 +1,24 @@
+# filebeat.inputs:
+# - type: log
+#   enabled: true
+#   paths:
+#     - /usr/share/filebeat/logs/apache_logs1
+#   fields:
+#     apache: true
+
+filebeat.modules:
+- module: apache
+  access:
+    var.paths: ["/usr/share/filebeat/logs/apache_logs1"]
+  error:
+    enabled: false
+
+setup.ilm.overwrite: false
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  username: 'elastic'
+  password: 'changeme'
+setup.kibana:
+  host: "kibana:5601"
+  protocol: "http"
